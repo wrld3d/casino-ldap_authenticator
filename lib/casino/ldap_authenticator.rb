@@ -59,13 +59,17 @@ class CASino::LDAPAuthenticator
 
   def user_data(user)
     {
-      username: user[username_attribute].first,
+      username: user[real_username_attribute].first,
       extra_attributes: extra_attributes(user)
     }
   end
 
   def username_attribute
     @options[:username_attribute] || DEFAULT_USERNAME_ATTRIBUTE
+  end
+
+  def real_username_attribute
+    @options[:real_username_attribute].presence || username_attribute
   end
 
   def user_filter(username)
