@@ -7,8 +7,6 @@ class CASino::LDAPAuthenticator
   # @param [Hash] options
   def initialize(options)
     @options = options
-    @first_name_attribute = options[:first_name_attribute] || :givenName
-    @email_attribute = options[:email_attribute] || :mail
   end
 
   def validate(username, password)
@@ -25,20 +23,24 @@ class CASino::LDAPAuthenticator
       "LDAP change password failed with '#{e}'. Check your authenticator configuration."
   end
 
-  def load_user_data(username)
+  def load_user_data(username, login = true)
     ldap = connect_to_ldap
-    user = ldap_user(username, ldap, false)
+    user = ldap_user(username, ldap, login)
     return false unless user
 
     user_data(user)
   end
 
-  def first_name_from_extra_attributes(extra_attributes)
-    extra_attributes[@first_name_attribute]
+  def first_name(attributes)
+    attributes[first_name_attribute]
   end
 
-  def email_from_extra_attributes(extra_attributes)
-    extra_attributes[@email_attribute]
+  def email(attributes)
+    attributes[email_attribute]
+  end
+
+  def login(attributes)
+    attributes[login_attribute]
   end
 
   private
@@ -62,9 +64,9 @@ class CASino::LDAPAuthenticator
     return false unless password && !password.empty?
 
     ldap = connect_to_ldap
-    user = ldap.bind_as(:base => @options[:base], :size => 1, :password => password, :filter => user_filter(username, false))
+    user = ldap.bind_as(:base => @options[:base], :size => 1, :password => password, :filter => user_filter(username, true))
     if user
-      user_data(ldap_user(username, ldap, false))
+      user_data(ldap_user(username, ldap, true))
     else
       false
     end
@@ -74,15 +76,15 @@ class CASino::LDAPAuthenticator
     return false if password.blank?
 
     ldap = connect_to_ldap
-    user = ldap_user(username, ldap, true)
+    user = ldap_user(username, ldap, false)
     return false unless user
 
     ldap.replace_attribute user.dn, :userPassword, encrypt_password(password)
   end
 
-  def ldap_user(username, ldap, real_username)
+  def ldap_user(username, ldap, login)
     include_attributes = @options[:extra_attributes].values + [username_attribute]
-    user = ldap.search(:base => @options[:base], :filter => user_filter(username, real_username), :attributes => include_attributes)
+    user = ldap.search(:base => @options[:base], :filter => user_filter(username, login), :attributes => include_attributes)
     return nil if user.nil?
     if user.is_a?(Array)
       user = user.first
@@ -92,21 +94,13 @@ class CASino::LDAPAuthenticator
   def user_data(user)
     attributes = extra_attributes(user)
     {
-      username: user[real_username_attribute].first,
+      username: user[username_attribute].first,
       extra_attributes: attributes
     }
   end
 
-  def username_attribute
-    @options[:username_attribute] || DEFAULT_USERNAME_ATTRIBUTE
-  end
-
-  def real_username_attribute
-    @options[:real_username_attribute].presence || username_attribute
-  end
-
-  def user_filter(username, real_username)
-    filter = Net::LDAP::Filter.eq(real_username ? real_username_attribute : username_attribute, username)
+  def user_filter(username, login)
+    filter = Net::LDAP::Filter.eq(login ? login_attribute : username_attribute, username)
     unless @options[:filter].nil?
       filter &= Net::LDAP::Filter.construct(@options[:filter])
     end
@@ -134,5 +128,21 @@ class CASino::LDAPAuthenticator
 
   def password_encryption_method
     @password_encryption_method ||= @options.fetch(:password_encryption_method, :ssha).to_sym
+  end
+
+  def first_name_attribute
+    @first_name_attribute ||= @options[:first_name_attribute] || :givenName
+  end
+
+  def email_attribute
+    @email_attribute ||= @options[:email_attribute] || :mail
+  end
+
+  def username_attribute
+    @username_attribute ||= @options[:username_attribute] || DEFAULT_USERNAME_ATTRIBUTE
+  end
+
+  def login_attribute
+    @login_attribute ||= @options[:login_attribute].presence || username_attribute
   end
 end
