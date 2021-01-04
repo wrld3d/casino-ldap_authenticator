@@ -17,11 +17,11 @@ Gem::Specification.new do |s|
   s.executables   = `git ls-files -- bin/*`.split("\n").map{ |f| File.basename(f) }
   s.require_paths = ['lib']
 
-  s.add_development_dependency 'rake', '~> 10.0'
+  s.add_development_dependency 'rake', '~> 12.3.3'
   s.add_development_dependency 'rspec', '~> 2.12'
   s.add_development_dependency 'simplecov', '~> 0.7'
   s.add_development_dependency 'coveralls'
 
-  s.add_runtime_dependency 'net-ldap', '~> 0.3'
+  s.add_runtime_dependency 'net-ldap', '~> 0.16'
   s.add_runtime_dependency 'casino', '~> 5.0'
 end
